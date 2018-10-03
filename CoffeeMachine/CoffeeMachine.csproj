@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="nfluent" Version="2.4.0" />
+    <PackageReference Include="nunit" Version="3.10.1" />
+  </ItemGroup>
+
+</Project>
