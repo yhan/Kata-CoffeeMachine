@@ -15,5 +15,7 @@ namespace CoffeeMachine
         public double Price { get; set; }
 
         public bool IsCold { get; set; }
+
+        public string Name { get; set; }
     }
 }

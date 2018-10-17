@@ -1,16 +1,25 @@
 ﻿namespace CoffeeMachine
 {
+    using System;
+
     using NFluent;
+
+    using NSubstitute;
+
     using NUnit.Framework;
 
     public class LogicShould
     {
         private Logic _logic;
 
+        protected internal IProvideToday _todayProvider;
+
         [SetUp]
         public void Setup()
         {
-            _logic = new Logic();
+            this._todayProvider = Substitute.For<IProvideToday>();
+            this._todayProvider.GetToday().Returns(DateTime.Today);
+            _logic = new Logic(this._todayProvider);
         }
 
 
@@ -51,7 +60,12 @@
             var actual = _logic.Translate(new Order {ProductKind = ProductKind.Coffee, Sugar = 0, Money = 0.6});
             Check.That(actual).IsEqualTo("C:0:0");
         }
-
+        /// <summary>
+        /// Tea: 0.4; Coffee: 0.6; Chocolate: 0.5
+        /// </summary>
+        /// <param name="productKind"></param>
+        /// <param name="money"></param>
+        /// <param name="expected"></param>
         [TestCase(ProductKind.Coffee, 0.6, "C:0:0")]
         [TestCase(ProductKind.Chocolate, 0.5, "H:0:0")]
         [TestCase(ProductKind.OrangeJuice, 0.6, "O:0:0")]
@@ -82,5 +96,45 @@
             Check.That(actual).IsEqualTo(expected);
         }
 
+
+        [Test]
+        public void Report_what_is_sold_and_when_orders_are_one_coffe_with_one_sugar_and_an_orange_juice()
+        {
+            this._logic.Translate(new Order(ProductKind.Coffee, extraHot: false, money: 0.6, sugar: 1));
+            this._logic.Translate(new Order(ProductKind.OrangeJuice, extraHot: false, money: 0.6, sugar: 1));
+
+            string report = this._logic.Report();
+
+            Check.That(report).IsEqualTo("(17/10/2018)| 1.2 euro, Coffee: 1, Orange: 1");
+        }
+
+        [Test]
+        public void Report_what_is_sold_and_when_orders_are_2_coffe_with_one_sugar_and_an_orange_juice()
+        {
+            this._logic.Translate(new Order(ProductKind.Coffee, extraHot: false, money: 0.6, sugar: 1));
+            this._logic.Translate(new Order(ProductKind.Coffee, extraHot: false, money: 0.6, sugar: 1));
+            this._logic.Translate(new Order(ProductKind.OrangeJuice, extraHot: false, money: 0.6, sugar: 1));
+
+            string report = this._logic.Report();
+
+            Check.That(report).IsEqualTo($"({DateTime.Today:d})| 1.8 euro, Coffee: 2, Orange: 1");
+        }
+
+
+        [Test]
+        [Repeat(500)]
+        public void Report_what_is_sold_and_when_orders_are_2_coffe_with_one_sugar_and_an_orange_juice_two_orders_in_different_days()
+        {
+            this._logic.Translate(new Order(ProductKind.Coffee, extraHot: false, money: 0.6, sugar: 1));
+
+            _todayProvider.GetToday().Returns(DateTime.Today.AddDays(1));
+            
+            this._logic.Translate(new Order(ProductKind.Coffee, extraHot: false, money: 0.6, sugar: 1));
+            this._logic.Translate(new Order(ProductKind.OrangeJuice, extraHot: false, money: 0.6, sugar: 1));
+
+            string report = this._logic.Report();
+
+            Check.That(report).IsEqualTo($"({DateTime.Today:d})| 0.6 euro, Coffee: 1\r\n ({DateTime.Today.AddDays(1):d})| 1.2 euro, Coffee: 1, Orange: 1");
+        }
     }
 }
