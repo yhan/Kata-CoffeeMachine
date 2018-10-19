@@ -1,6 +1,6 @@
 ﻿namespace CoffeeMachine
 {
-    public enum ProductKind
+    public enum BeverageKind
     {
         Coffee,
 

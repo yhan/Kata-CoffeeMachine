@@ -7,87 +7,98 @@
 
     public class Logic
     {
-        private Dictionary<DateTime, List<Order>> _orders = new Dictionary<DateTime, List<Order>>();
+        private readonly BeverageReferential _beverageReferential = new BeverageReferential();
 
-        private Dictionary<ProductKind, Product> _products = new Dictionary<ProductKind, Product>
-                                                                 {
-                                                                     [ProductKind.Coffee] =
-                                                                         new Product
-                                                                             {
-                                                                                 Kind = ProductKind.Coffee,
-                                                                                 Code = "C",
-                                                                                 Price = 0.6,
-                                                                                 Name = "Coffee"
-                                                                             },
-                                                                     [ProductKind.Chocolate] =
-                                                                         new Product
-                                                                             {
-                                                                                 Kind = ProductKind.Chocolate,
-                                                                                 Code = "H",
-                                                                                 Price = 0.5,
-                                                                                 Name = "Chocolate"
-                                                                             },
-                                                                     [ProductKind.Tea] =
-                                                                         new Product
-                                                                             {
-                                                                                 Kind = ProductKind.Tea,
-                                                                                 Code = "T",
-                                                                                 Price = 0.4,
-                                                                                 Name = "Tea"
-                                                                             },
-                                                                     [ProductKind.OrangeJuice] =
-                                                                         new Product
-                                                                             {
-                                                                                 Kind = ProductKind.OrangeJuice,
-                                                                                 Code = "O",
-                                                                                 Price = 0.6,
-                                                                                 Name = "Orange",
-                                                                                 IsCold = true
-                                                                             }
-                                                                 };
+        private readonly Dictionary<DateTime, List<Order>> _orders = new Dictionary<DateTime, List<Order>>();
 
-        private IProvideToday _todayProvider;
+        private readonly IProvideToday _todayProvider;
 
         public Logic(IProvideToday todayProvider)
         {
             _todayProvider = todayProvider;
         }
 
-        public string Report()
-        {
-            return string.Join("\r\n ", this._orders.Select(x => ReportOfTheDay(x.Key, x.Value)));
-        }
-
         public string Translate(Order order)
         {
-            var product = _products[order.ProductKind];
+            var beverage = _beverageReferential.GetBeverage(order.BeverageKind);
 
-            bool hasNotEnoughForDrink = order.Money < product.Price;
-            if (hasNotEnoughForDrink) return $"M:Not enough money, missing {Math.Abs(order.Money - product.Price)}";
+            if (ReturnNotEnoughMoneyWhenNecessary(order, beverage, out var message))
+            {
+                return message;
+            }
 
-            var extraHotCode = !product.IsCold && order.ExtraHot ? "h" : string.Empty;
+            var extraHotCode = !beverage.IsCold && order.ExtraHot ? "h" : string.Empty;
 
-            var today = _todayProvider.GetToday();
-            if (!_orders.ContainsKey(today)) this._orders.Add(today, new List<Order>());
-            _orders[today].Add(order);
+            TakeOrder(order);
 
-            int stick = order.Sugar >= 1 ? 1 : 0;
+            return BuildMessage(order, beverage, extraHotCode);
+        }
+
+        public string Report()
+        {
+            return string.Join("\r\n ", _orders.Select(x => ReportOfTheDay(x.Key, x.Value)));
+        }
+
+        private string ReportOfTheDay(DateTime date, IReadOnlyCollection<Order> ordersOfTheDay)
+        {
+            var turnover = CalculateTurnover(ordersOfTheDay);
+            var beveragesSummary = BuildBeveragesSummary(ordersOfTheDay);
+
+            return $"({date:d})| {turnover}, {beveragesSummary}";
+        }
+
+        private static string BuildMessage(Order order, Product product, string extraHotCode)
+        {
+            var stick = order.Sugar >= 1 ? 1 : 0;
             return $"{product.Code}{extraHotCode}:{order.Sugar}:{stick}";
         }
 
-        private string ReportOfTheDay(DateTime date, List<Order> ordersOftheDay)
+        private void TakeOrder(Order order)
         {
-            var groupByProductType = ordersOftheDay.GroupBy(x => this._products[x.ProductKind].Name);
+            var today = _todayProvider.GetToday();
+            if (!_orders.ContainsKey(today))
+            {
+                _orders.Add(today, new List<Order>());
+            }
 
-            return $"({date:d})| {ordersOftheDay.Sum(x => x.Money).ToString(CultureInfo.InvariantCulture)} euro, " + string.Empty
-                                                                                                                   + string
-                                                                                                                       .Join(
-                                                                                                                           ", ",
-                                                                                                                           groupByProductType
-                                                                                                                               .Select(
-                                                                                                                                   x =>
-                                                                                                                                       x.Key
-                                                                                                                                       + $": {x.Count()}"));
+            _orders[today].Add(order);
+        }
+
+        private static bool ReturnNotEnoughMoneyWhenNecessary(Order order, Product product, out string message)
+        {
+            message = string.Empty;
+            bool hasNotEnoughForDrink = order.Money < product.Price;
+            if (hasNotEnoughForDrink)
+            {
+                message = $"M:Not enough money, missing {Math.Abs(order.Money - product.Price)}";
+                return true;
+            }
+
+            return false;
+        }
+
+        private string BuildBeveragesSummary(IEnumerable<Order> ordersOfTheDay)
+        {
+            var groupByProductType = ordersOfTheDay.GroupBy(
+                x =>
+                    {
+                        var beverageName = _beverageReferential.GetBeverage(x.BeverageKind).Name;
+                        return beverageName;
+                    });
+            var beveragesSummary = string.Join(
+                ", ",
+                groupByProductType.Select(
+                    x =>
+                        {
+                            var beverageNameAndQuantity = $"{x.Key}: {x.Count()}";
+                            return beverageNameAndQuantity;
+                        }));
+            return beveragesSummary;
+        }
+
+        private static string CalculateTurnover(IEnumerable<Order> ordersOfTheDay)
+        {
+            return $"{ordersOfTheDay.Sum(x => x.Money).ToString(CultureInfo.InvariantCulture)} euro";
         }
     }
 }
