@@ -12,15 +12,25 @@
         private readonly Dictionary<DateTime, List<Order>> _orders = new Dictionary<DateTime, List<Order>>();
 
         private readonly IProvideToday _todayProvider;
+        private readonly IBeverageQuantityChecker _beverageQuantityChecker;
+        private readonly IEmailNotifier _emailNotifier;
 
-        public Logic(IProvideToday todayProvider)
+        public Logic(IProvideToday todayProvider, IBeverageQuantityChecker beverageQuantityChecker, IEmailNotifier emailNotifier)
         {
             _todayProvider = todayProvider;
+            _beverageQuantityChecker = beverageQuantityChecker;
+            _emailNotifier = emailNotifier;
         }
 
         public string Translate(Order order)
         {
             var beverage = _beverageReferential.GetBeverage(order.BeverageKind);
+
+            if (_beverageQuantityChecker.IsEmpty(beverage.Code))
+            {
+                _emailNotifier.NotifyMissingDrink(beverage.Code);
+                return $"M:Shortage for {beverage.Name}";
+            }
 
             if (ReturnNotEnoughMoneyWhenNecessary(order, beverage, out var message))
             {

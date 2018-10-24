@@ -17,8 +17,11 @@
         {
             _todayProvider = Substitute.For<IProvideToday>();
             _defaultToday = new DateTime(2018, 10, 19);
+            _beverageQuantityChecker = Substitute.For<IBeverageQuantityChecker>();
+            _beverageQuantityChecker.IsEmpty(Arg.Any<string>()).Returns(false);
+            _emailNotifier = Substitute.For<IEmailNotifier>();
             _todayProvider.GetToday().Returns(_defaultToday);
-            _logic = new Logic(_todayProvider);
+            _logic = new Logic(_todayProvider, _beverageQuantityChecker, _emailNotifier);
         }
 
         [TestCase(BeverageKind.Coffee, "C:0:0")]
@@ -172,8 +175,26 @@
             Check.That(report).IsEqualTo($"({_defaultToday:d})| 0.6 euro, Coffee: 1\r\n ({DateTime.Today.AddDays(1):d})| 1.2 euro, Coffee: 1, Orange: 1");
         }
 
+        [Test]
+        public void Inform_user_When_there_is_a_shortage_for_coffee()
+        {
+            _beverageQuantityChecker.IsEmpty("C").Returns(true);
+            var actual = _logic.Translate(new Order(BeverageKind.Coffee, false, 0.6, 0));
+            Check.That(actual).IsEqualTo("M:Shortage for Coffee");
+        }
+
+        [Test]
+        public void Send_mail_When_there_is_a_shortage_for_coffee()
+        {
+            _beverageQuantityChecker.IsEmpty("C").Returns(true);
+            _logic.Translate(new Order(BeverageKind.Coffee, false, 0.6, 0));
+            _emailNotifier.Received().NotifyMissingDrink("C");
+        }
+
         protected internal IProvideToday _todayProvider;
 
         protected internal DateTime _defaultToday;
+        private IBeverageQuantityChecker _beverageQuantityChecker;
+        private IEmailNotifier _emailNotifier;
     }
 }
