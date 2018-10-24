@@ -16,7 +16,8 @@
         public void Setup()
         {
             _todayProvider = Substitute.For<IProvideToday>();
-            _todayProvider.GetToday().Returns(new DateTime(2018, 10, 19));
+            _defaultToday = new DateTime(2018, 10, 19);
+            _todayProvider.GetToday().Returns(_defaultToday);
             _logic = new Logic(_todayProvider);
         }
 
@@ -140,7 +141,7 @@
 
             string report = _logic.Report();
 
-            Check.That(report).IsEqualTo("(19/10/2018)| 1.2 euro, Coffee: 1, Orange: 1");
+            Check.That(report).IsEqualTo($"({_defaultToday:d})| 1.2 euro, Coffee: 1, Orange: 1");
         }
 
         [Test]
@@ -152,7 +153,7 @@
 
             string report = _logic.Report();
 
-            Check.That(report).IsEqualTo($"({DateTime.Today:d})| 1.8 euro, Coffee: 2, Orange: 1");
+            Check.That(report).IsEqualTo($"({_defaultToday:d})| 1.8 euro, Coffee: 2, Orange: 1");
         }
 
         [Test]
@@ -168,9 +169,11 @@
 
             string report = _logic.Report();
 
-            Check.That(report).IsEqualTo($"({DateTime.Today:d})| 0.6 euro, Coffee: 1\r\n ({DateTime.Today.AddDays(1):d})| 1.2 euro, Coffee: 1, Orange: 1");
+            Check.That(report).IsEqualTo($"({_defaultToday:d})| 0.6 euro, Coffee: 1\r\n ({DateTime.Today.AddDays(1):d})| 1.2 euro, Coffee: 1, Orange: 1");
         }
 
         protected internal IProvideToday _todayProvider;
+
+        protected internal DateTime _defaultToday;
     }
 }
